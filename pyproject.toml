@@ -1,0 +1,24 @@
+[build-system]
+requires = ["setuptools>=68"]
+build-backend = "setuptools.backends.legacy:build"
+
+[project]
+name = "group8-attplane"
+version = "0.1.0"
+requires-python = ">=3.12"
+dependencies = [
+    "polars==1.41.2",
+    "pandas==2.2.2",
+    "plotly==5.24.1",
+    "python-dotenv==0.21.0",
+    "ibm_db==3.2.9",
+    "ibm_db_sa==0.4.4",
+    "sqlalchemy==2.0.50",
+    "streamlit==1.52.2",
+    "ipykernel==6.28.0",
+]
+
+[tool.uv]
+dev-dependencies = [
+    "jupyter==1.0.0",
+]
