@@ -1,5 +1,9 @@
 # DB2 Connection Fix
 
+Optional troubleshooting guide for teammates who hit the `ibm_db` / `ibm_db_sa` schema initialization bug.
+
+Use this file only if the standard notebook connection cell fails with the `current_schema` error.
+
 Connecting to the ATTPLANE database from Python requires three fixes that are not obvious. Follow the steps below in order.
 
 ---
