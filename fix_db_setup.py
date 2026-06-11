@@ -1,37 +1,26 @@
 """
-Run this script ONCE to fix the DB2 connection on your machine.
+Patches a bug in the ibm_db driver and verifies the DB2 connection.
 
+Run AFTER installing packages:
+    pip install .
     python fix_db_setup.py
-
-What it does:
-  1. Reinstalls ibm_db, ibm_db_sa, sqlalchemy (fresh, compatible versions)
-  2. Patches a bug in ibm_db_dbi.py (AttributeError on get_current_schema)
-  3. Verifies the connection to ATTPLANE works end-to-end
 """
 
-import subprocess
 import sys
-import site
+import pathlib
 
-# ── 1. Reinstall packages ──────────────────────────────────────────────────────
-print("Step 1: Reinstalling packages...")
-pkgs = ["ibm_db", "ibm_db_sa", "sqlalchemy"]
-subprocess.check_call([sys.executable, "-m", "pip", "uninstall", "-y"] + pkgs)
-subprocess.check_call([sys.executable, "-m", "pip", "install"] + pkgs)
-print("Packages installed.\n")
+# ── Check ibm_db is installed ─────────────────────────────────────────────────
+try:
+    import ibm_db
+    import ibm_db_dbi
+except ImportError:
+    print("ERROR: ibm_db is not installed. Run 'pip install .' first.")
+    sys.exit(1)
 
-# ── 2. Patch ibm_db_dbi.py ────────────────────────────────────────────────────
-print("Step 2: Patching ibm_db_dbi.py...")
+# ── Patch ibm_db_dbi.py ───────────────────────────────────────────────────────
+print("Patching ibm_db_dbi.py...")
 
-import importlib, pathlib
-
-# Reload site-packages after install
-importlib.invalidate_caches()
-import ibm_db_dbi as _dbi_mod
-dbi_path = pathlib.Path(_dbi_mod.__file__)
-print(f"  File: {dbi_path}")
-
-src = dbi_path.read_text(encoding="utf-8")
+dbi_path = pathlib.Path(ibm_db_dbi.__file__)
 
 OLD = (
     "            LogMsg(DEBUG, f\"Current schema: {self.current_schema}\")\n"
@@ -50,38 +39,38 @@ NEW = (
     "        return getattr(self, 'current_schema', None)"
 )
 
-if OLD in src:
-    patched = src.replace(OLD, NEW, 1)
-    dbi_path.write_text(patched, encoding="utf-8")
-    print("  Patch applied.\n")
-elif NEW in src:
-    print("  Already patched, skipping.\n")
-else:
-    print("  WARNING: Could not find the expected code block.")
-    print("  The ibm_db version on your machine may differ.")
-    print("  Open ibm_db_dbi.py and find get_current_schema().")
-    print("  Change the two lines shown below manually:\n")
-    print("    BEFORE:  LogMsg(DEBUG, f'Current schema: {self.current_schema}')")
-    print("    AFTER:   LogMsg(DEBUG, f'Current schema: {conn_schema}')\n")
-    print("    BEFORE:  return self.current_schema")
-    print("    AFTER:   return getattr(self, 'current_schema', None)\n")
+src = dbi_path.read_text(encoding="utf-8")
 
-# ── 3. Verify connection ───────────────────────────────────────────────────────
-print("Step 3: Testing DB connection...")
+if NEW in src:
+    print("  Already patched.\n")
+elif OLD in src:
+    dbi_path.write_text(src.replace(OLD, NEW, 1), encoding="utf-8")
+    print("  Patch applied.\n")
+else:
+    print("  WARNING: Could not find expected code. ibm_db version may differ.")
+    print("  See fix.md for manual patch instructions.\n")
+
+# ── Verify connection ─────────────────────────────────────────────────────────
+print("Testing DB2 connection...")
 
 import importlib
-import ibm_db        # type: ignore
-importlib.reload(ibm_db_dbi := __import__("ibm_db_dbi"))  # pick up the patch
+importlib.invalidate_caches()
 
 from sqlalchemy import create_engine, text  # type: ignore
 
+DB_HOST     = "52.211.123.34"
+DB_PORT     = 25010
+DB_NAME     = "ATTPLANE"
+DB_USERNAME = "attgrp8"
+DB_PASSWORD = "bigdata"
+
 def _make_conn():
-    conn_str = (
-        "HOSTNAME=52.211.123.34;PORT=25010;DATABASE=ATTPLANE;"
-        "PROTOCOL=TCPIP;UID=attgrp8;PWD=bigdata;"
-        "AUTHENTICATION=SERVER;CURRENTSCHEMA=ATTGRP8;"
-    )
     import ibm_db_dbi as _dbi
+    conn_str = (
+        f"HOSTNAME={DB_HOST};PORT={DB_PORT};DATABASE={DB_NAME};"
+        f"PROTOCOL=TCPIP;UID={DB_USERNAME};PWD={DB_PASSWORD};"
+        f"AUTHENTICATION=SERVER;CURRENTSCHEMA={DB_USERNAME.upper()};"
+    )
     return _dbi.Connection(ibm_db.connect(conn_str, "", ""))
 
 try:
@@ -91,8 +80,8 @@ try:
             "SELECT TABNAME FROM SYSCAT.TABLES "
             "WHERE TABSCHEMA='ATTGRP8' ORDER BY TABNAME"
         )).fetchall()
-    print(f"  Connected! Tables visible: {[r[0] for r in tables]}")
-    print("\nAll done. Restart your Jupyter kernel and run the notebook.")
+    print(f"  Connected! Tables: {[r[0] for r in tables]}")
+    print("\nAll done. Open Exploratory.ipynb, restart kernel, and run all cells.")
 except Exception as exc:
-    print(f"  Connection test failed: {type(exc).__name__}: {exc}")
-    print("  Check your network / VPN and try again.")
+    print(f"  Connection failed: {type(exc).__name__}: {exc}")
+    print("  Check your network/VPN and that credentials are correct.")
