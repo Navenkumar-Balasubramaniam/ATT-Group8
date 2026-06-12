@@ -52,7 +52,8 @@ Responsibilities:
 
 - Standardize column names and data types.
 - Join the tables needed for the dashboard.
-- Create reusable Polars transformation functions in `src/analysis.py`.
+- Create reusable cleaning functions in `src/data_clean.py`.
+- Create reusable feature engineering and joined modeling functions in `src/data_enrich.py`.
 - Produce cleaned Parquet outputs in `data/processed/` or `data/output/`.
 
 Deliverables:
@@ -138,7 +139,9 @@ By next week, the team should be able to show:
 ## File Ownership Guide
 
 - `src/db.py`: ingestion and connection logic
-- `src/analysis.py`: transformations and metrics
+- `src/data_clean.py`: raw table cleaning and type standardization
+- `src/data_enrich.py`: feature engineering and joined modeling datasets
+- `src/analysis.py`: analytical summaries and metrics
 - `src/viz.py`: chart helpers
 - `app.py`: Streamlit interface
 - `G8_Project.ipynb`: exploratory analysis and validation

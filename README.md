@@ -1,90 +1,188 @@
-# ATT-Group8
+# ATT Group 8
 
-This repository contains the working notebook and dashboard for the ATT Plane group project, plus a few optional troubleshooting files for setup issues.
+This repository contains the ATTPLANE group project. The current focus is a
+simple, beginner-friendly Polars data preparation workflow that starts with raw
+Parquet files, inspects and cleans them, adds useful business features, and
+builds one dashboard-ready master table.
 
-## Project Overview
+The main working notebook is:
 
-This is a take-home airline analytics project built around the ATTPLANE DB2 database. The goal is to prepare data with Polars, then present useful airline business insights in a Streamlit dashboard.
+- [notebooks/Exploratory.ipynb](notebooks/Exploratory.ipynb)
 
-The project should answer real operational questions such as:
+The main dashboard-ready output is:
 
-- Which routes, cabins, or departure periods generate the most value?
-- How is the fleet being used, and where are the capacity or maintenance risks?
-- What patterns appear in passenger, route, or ticket performance over time?
+- `data/processed/master_flight_dashboard.parquet`
 
-The intended stack is:
+## Project Goal
 
-- Polars for loading, cleaning, joining, and aggregating data
-- Streamlit for the dashboard UI
-- Plotly for visualizations
-- SQLAlchemy and the IBM DB2 driver for database access
+The goal is to prepare airline data for analysis and a later Streamlit
+dashboard. The cleaned and enriched data should support questions such as:
 
-The main deliverables are a working notebook, prepared data files or transformations, and a Streamlit app that explains the assumptions and findings clearly.
+- Which routes are short, medium, long, or very long?
+- Which flights happen by month, weekday, hour, or weekend?
+- What airplane capacity is available by model and route?
+- Which routes are domestic or same-continent routes?
+- Which airport, route, and airplane fields can be used in dashboard filters?
 
-## Team Scaffold
+## Current Pipeline
 
-The repository is organized so five people can work in parallel without overlapping ownership:
+The data preparation workflow is split into small modules:
 
-1. DB2 connection and ingestion.
-2. Cleaning, joins, and feature engineering.
-3. Revenue and route analysis.
-4. Fleet or passenger analysis.
-5. Streamlit app and presentation.
+| Step | File | Purpose |
+| --- | --- | --- |
+| Data loading | `src/pull_data.py` | Pull raw DB2 tables into `data/raw/` as Parquet files. |
+| Inspection | `src/data_inspect.py` | Display available tables, summary statistics, and missing/null counts. |
+| Cleaning | `src/data_clean.py` | Trim strings, convert obvious missing values to null, parse selected dates, and drop exact duplicates. |
+| Enrichment | `src/data_enrich.py` | Add business features to each individual table. |
+| Modeling | `src/data_model.py` | Join the enriched tables and verify row counts/keys. |
+| Notebook | `notebooks/Exploratory.ipynb` | Runs the full workflow in order and saves the master table. |
 
-The detailed handoff plan lives in [docs/team_workplan.md](docs/team_workplan.md), and the folder layout is summarized in [docs/repo_scaffold.md](docs/repo_scaffold.md).
+The code is intentionally written in straightforward Polars so it is easier to
+read, explain, and adjust.
 
-## Start Here
+## Master Table
 
-1. Open [G8_Project.ipynb](G8_Project.ipynb) to run the DB2 connection test, inspect tables, and prepare data.
-2. Run [app.py](app.py) with Streamlit once the prepared Parquet file exists.
-3. Use [plane_db_take_home_assignment.md](plane_db_take_home_assignment.md) as the project brief and requirements reference.
+The final master table is saved as:
 
-## How to Run
+```text
+data/processed/master_flight_dashboard.parquet
+```
 
-1. Activate the project environment.
-2. Open [G8_Project.ipynb](G8_Project.ipynb) and run the notebook cells in order.
-3. If the notebook creates `data/main_clean.parquet`, launch the dashboard with Streamlit.
+It currently joins:
 
-Example commands:
+- `flights`
+- `routes`
+- `airplanes`
+- `airports` twice: once for the origin airport and once for the destination airport
+
+It does not include `tickets` or ticket-based passenger joins yet. The current
+`data/raw/tickets.parquet` file needs to be re-pulled because it is not a valid
+Parquet file.
+
+The master table keeps all columns from the joined/enriched tables. To avoid
+ambiguous duplicate names:
+
+- flight columns keep their original names
+- route columns use `route_`
+- airplane columns use `airplane_`
+- origin airport columns use `origin_`
+- destination airport columns use `destination_`
+
+Example columns:
+
+```text
+flight_id
+route_code
+departure_date
+route_distance_band
+airplane_total_seats
+origin_city
+destination_city
+is_domestic_route
+is_same_continent_route
+```
+
+## How To Run
+
+Install dependencies:
 
 ```bash
 uv sync
+```
+
+Open and run the notebook:
+
+```text
+notebooks/Exploratory.ipynb
+```
+
+The notebook is organized as:
+
+1. Imports and setup
+2. Pull/load raw data
+3. Inspect and clean raw data
+4. Enrich tables and build the master dashboard table
+
+After running the notebook, the key output should exist here:
+
+```text
+data/processed/master_flight_dashboard.parquet
+```
+
+To run the Streamlit app later:
+
+```bash
 uv run streamlit run app.py
 ```
+
+## How To Test
+
+Run the data preparation tests:
+
+```bash
+uv run pytest tests/test_data_clean.py tests/test_data_inspect.py tests/test_data_enrich.py tests/test_data_model.py
+```
+
+Run all non-integration tests:
+
+```bash
+uv run pytest
+```
+
+Live DB2 tests are marked as integration tests and should only be run when the
+DB2 connection is available.
 
 ## Repository Layout
 
 ```text
 ATT-Group8/
-├── G8_Project.ipynb               # Main notebook for connection, exploration, and data prep
-├── app.py                          # Streamlit dashboard
-├── src/                            # Reusable DB, analysis, and visualization helpers
-├── docs/                           # Team plan and scaffold notes
-├── data/raw/                       # Source extracts or snapshots
-├── data/processed/                 # Cleaned intermediate datasets
-├── data/output/                    # Final dashboard-ready datasets
-├── plane_db_take_home_assignment.md # Project brief and requirements
-├── Exploratory.ipynb               # Optional scratch notebook
-├── fix_db_setup.py                 # Optional DB2 connection helper
-├── fix.md                          # Optional troubleshooting notes
-└── README.md                       # Project overview and setup notes
+|-- app.py
+|-- notebooks/
+|   |-- Exploratory.ipynb
+|   `-- G8_Project.ipynb
+|-- src/
+|   |-- pull_data.py
+|   |-- db.py
+|   |-- data_inspect.py
+|   |-- data_clean.py
+|   |-- data_enrich.py
+|   |-- data_model.py
+|   |-- analysis.py
+|   `-- viz.py
+|-- tests/
+|   |-- test_pull_data.py
+|   |-- test_data_inspect.py
+|   |-- test_data_clean.py
+|   |-- test_data_enrich.py
+|   `-- test_data_model.py
+|-- data/
+|   |-- raw/
+|   |-- processed/
+|   `-- output/
+|-- docs/
+|-- plane_db_take_home_assignment.md
+|-- pyproject.toml
+|-- uv.lock
+`-- README.md
 ```
 
-## Main Files
+## Current Data Notes
 
-- [G8_Project.ipynb](G8_Project.ipynb): primary exploratory notebook and preparation workflow.
-- [app.py](app.py): Streamlit dashboard template.
-- [plane_db_take_home_assignment.md](plane_db_take_home_assignment.md): assignment brief and deliverable expectations.
+- Cleaned intermediate tables are saved in `data/processed/` as
+  `*_clean.parquet`. They are useful checkpoints for debugging and rerunning
+  later steps without cleaning again.
+- The final dashboard table is also saved in `data/processed/` as
+  `master_flight_dashboard.parquet`.
+- `tickets.parquet` currently needs to be re-pulled before ticket revenue or
+  passenger-to-flight analysis can be added.
+- Passenger enrichment exists in `src/data_enrich.py`, but passengers are not
+  joined into the master table yet because tickets are the bridge table.
 
-## Optional Support Files
+## Next Steps
 
-- [Exploratory.ipynb](Exploratory.ipynb): scratch notebook for experiments and ad hoc analysis.
-- [fix_db_setup.py](fix_db_setup.py): local DB2 driver patch and connection helper for the `ibm_db` schema issue.
-- [fix.md](fix.md): written troubleshooting guide for the same DB2 connection problem.
-- [docs/team_workplan.md](docs/team_workplan.md): recommended division of work for five colleagues.
-- [docs/repo_scaffold.md](docs/repo_scaffold.md): high-level explanation of the folder structure.
+Good follow-up tasks are:
 
-## Notes
-
-- Keep the support files if teammates may need to reproduce the DB2 fix.
-- The main project should still live in the notebook, cleaned Parquet outputs, and the Streamlit app.
+- Re-pull `tickets.parquet`.
+- Add ticket revenue features after tickets are readable.
+- Join passengers through tickets once the ticket table is available.
+- Build dashboard pages from `master_flight_dashboard.parquet`.
