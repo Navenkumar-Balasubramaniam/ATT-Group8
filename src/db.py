@@ -87,6 +87,8 @@ def stream_table_to_parquet(
                 )
                 if writer is None:
                     writer = pq.ParquetWriter(path, arrow_tbl.schema)
+                else:
+                    arrow_tbl = arrow_tbl.cast(writer.schema)
                 writer.write_table(arrow_tbl)
                 total_rows += len(chunk)
                 if on_chunk is not None:
