@@ -1,6 +1,9 @@
-"""Data cleaning, joins, feature engineering, and analytics helpers.
+"""Analytical aggregations and business metric helpers.
 
-This module should own the reusable Polars transformations used by the notebook and app.
+Cleaning belongs in ``src.data_clean``. Feature engineering and joined modeling
+tables belong in ``src.data_enrich``. Keep this module for actual analysis:
+route revenue, fleet utilization summaries, passenger segments, and dashboard
+metric tables.
 """
 
 from __future__ import annotations
@@ -9,8 +12,8 @@ import polars as pl
 
 
 def clean_columns_placeholder(df: pl.DataFrame) -> pl.DataFrame:
-    """Placeholder for standardizing column names and data types."""
-    raise NotImplementedError("Implement cleaning logic here.")
+    """Compatibility placeholder; use src.data_clean for cleaning logic."""
+    raise NotImplementedError("Use src.data_clean for cleaning logic.")
 
 
 def build_metrics_placeholder(df: pl.DataFrame) -> pl.DataFrame:

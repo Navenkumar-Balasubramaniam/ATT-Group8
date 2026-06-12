@@ -21,3 +21,6 @@ venv/
 data/
 *.parquet
 *.csv
+
+# Tests
+.tmp/
