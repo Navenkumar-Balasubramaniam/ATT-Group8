@@ -17,13 +17,10 @@ __pycache__/
 .venv/
 venv/
 
-# Data exports: ignore the heavy files but keep the folder skeleton + docs
-# tracked, so anyone cloning sees the expected data/ architecture.
-data/**/*.parquet
-data/**/*.csv
+# Data exports
+data/
 *.parquet
 *.csv
-!data/**/.gitkeep
 
 # Tests
 .tmp/
