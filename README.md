@@ -1,20 +1,17 @@
 # ATT Group 8
 
-This repository contains the ATTPLANE group project: a Polars data preparation
-workflow that starts from raw Parquet files, cleans and enriches them, builds one
-dashboard-ready master table plus small aggregates, and serves them through a
-Streamlit dashboard.
+This repository contains the ATTPLANE group project. The current focus is a
+simple, beginner-friendly Polars data preparation workflow that starts with raw
+Parquet files, inspects and cleans them, adds useful business features, and
+builds one dashboard-ready master table.
 
-Quick start (after cloning): see **[How To Run (first time)](#how-to-run-first-time)** —
-place the raw files, run `scripts/build_dashboard_data.py`, then
-`uv run streamlit run app.py`.
+The main working notebook is:
 
-Key entry points:
+- [notebooks/Exploratory.ipynb](notebooks/Exploratory.ipynb)
 
-- Prep script: `scripts/build_dashboard_data.py` (raw -> processed -> output)
-- Dashboard: `app.py`
-- Notebooks: [notebooks/Exploratory.ipynb](notebooks/Exploratory.ipynb), `notebooks/Analysis.ipynb`
-- Data contract (source of truth): `src/contracts.py` + [docs/data_contract.md](docs/data_contract.md)
+The main dashboard-ready output is:
+
+- `data/processed/master_flight_dashboard.parquet`
 
 ## Project Goal
 
@@ -58,9 +55,9 @@ It currently joins:
 - `airplanes`
 - `airports` twice: once for the origin airport and once for the destination airport
 
-It does not include `tickets` or ticket-based passenger joins (tickets are the
-bridge table). Revenue is instead produced as separate aggregates streamed
-directly from `data/raw/tickets.parquet` into `data/output/revenue_*.parquet`.
+It does not include `tickets` or ticket-based passenger joins yet. The current
+`data/raw/tickets.parquet` file needs to be re-pulled because it is not a valid
+Parquet file.
 
 The master table keeps all columns from the joined/enriched tables. To avoid
 ambiguous duplicate names:
@@ -85,67 +82,38 @@ is_domestic_route
 is_same_continent_route
 ```
 
-## How To Run (first time)
+## How To Run
 
-### 0. Install dependencies
+Install dependencies:
 
 ```bash
 uv sync
 ```
 
-### 1. Get the raw data into `data/raw/`
-
-The repo ships the **folder skeleton only** — the actual Parquet files are
-git-ignored (the raw `tickets.parquet` alone is ~3.4 GB). After cloning you must
-populate `data/raw/` yourself with the six source tables:
+Open and run the notebook:
 
 ```text
-data/raw/airplanes.parquet
-data/raw/airports.parquet
-data/raw/flights.parquet
-data/raw/passengers.parquet
-data/raw/routes.parquet
-data/raw/tickets.parquet
+notebooks/Exploratory.ipynb
 ```
 
-Two ways to obtain them:
+The notebook is organized as:
 
-- **Pull from DB2** (needs the course connection): run `src/pull_data.py`, which
-  writes every table to `data/raw/` as Parquet.
-- **Download / copy** the extracts from your team's shared storage and drop them
-  into `data/raw/` with the exact names above.
+1. Imports and setup
+2. Pull/load raw data
+3. Inspect and clean raw data
+4. Enrich tables and build the master dashboard table
 
-### 2. Build all dashboard data (one command, no database needed)
-
-```bash
-uv run python scripts/build_dashboard_data.py
-```
-
-This cleans the small tables, builds `data/processed/master_flight_dashboard.parquet`,
-and writes the seven small aggregates into `data/output/`. Tickets (248M rows) is
-streamed, never loaded into memory, so it will not crash the kernel.
-
-> Prefer the notebook? Open **[notebooks/Exploratory.ipynb](notebooks/Exploratory.ipynb)**
-> and run every cell top-to-bottom (Imports → Pull/load raw → Inspect & clean →
-> Enrich & build master). The tickets cleaning step (`clean_raw_tables`, cell with
-> `1e106816`) now streams the big file. The prep script is the faster, headless path.
-
-After step 2 you should have:
+After running the notebook, the key output should exist here:
 
 ```text
 data/processed/master_flight_dashboard.parquet
-data/output/*.parquet   (7 files)
 ```
 
-### 3. Run the Streamlit dashboard
+To run the Streamlit app later:
 
 ```bash
 uv run streamlit run app.py
 ```
-
-It opens at `http://localhost:8501`. The app reads only the small prepared files —
-it never touches DB2 or the raw tickets table. If the prepared data is missing it
-shows an error telling you to run step 2 first.
 
 ## How To Test
 
@@ -168,22 +136,18 @@ DB2 connection is available.
 
 ```text
 ATT-Group8/
-|-- app.py                         # Streamlit dashboard (reads data/output + master)
-|-- scripts/
-|   `-- build_dashboard_data.py    # one-time prep: raw -> processed -> output
+|-- app.py
 |-- notebooks/
-|   |-- Exploratory.ipynb          # full cleaning/enrich/master workflow
-|   |-- Analysis.ipynb             # route/fleet/revenue analyses
+|   |-- Exploratory.ipynb
 |   `-- G8_Project.ipynb
-|-- src/                           # the group8 package (group8-attplane)
-|   |-- contracts.py               # DATA CONTRACT: paths + expected columns (source of truth)
-|   |-- pull_data.py               # pull raw DB2 tables -> data/raw/
+|-- src/
+|   |-- pull_data.py
 |   |-- db.py
 |   |-- data_inspect.py
-|   |-- data_clean.py              # cleaning (+ streaming path for tickets)
+|   |-- data_clean.py
 |   |-- data_enrich.py
-|   |-- data_model.py              # join enriched tables -> master
-|   |-- analysis.py                # flight/fleet/revenue aggregations
+|   |-- data_model.py
+|   |-- analysis.py
 |   `-- viz.py
 |-- tests/
 |   |-- test_pull_data.py
@@ -191,42 +155,34 @@ ATT-Group8/
 |   |-- test_data_clean.py
 |   |-- test_data_enrich.py
 |   `-- test_data_model.py
-|-- data/                          # folder skeleton tracked; .parquet/.csv git-ignored
-|   |-- raw/        <- INPUTS you provide (the 6 DB2 extracts)
-|   |-- processed/  <- generated: *_clean.parquet + master_flight_dashboard.parquet
-|   `-- output/     <- generated: 7 small dashboard-ready aggregates
+|-- data/
+|   |-- raw/
+|   |-- processed/
+|   `-- output/
 |-- docs/
-|   |-- data_contract.md           # human-readable input<->output contract
-|   `-- ...
 |-- plane_db_take_home_assignment.md
 |-- pyproject.toml
 |-- uv.lock
 `-- README.md
 ```
 
-> **`data/` is git-ignored except the folder skeleton.** Each subfolder keeps a
-> `.gitkeep` so anyone cloning sees the expected layout, but the heavy `.parquet`
-> files are never committed — you must place the raw files yourself (step 1 above).
-> `processed/` and `output/` are produced by the prep script, not committed.
-
 ## Current Data Notes
 
 - Cleaned intermediate tables are saved in `data/processed/` as
   `*_clean.parquet`. They are useful checkpoints for debugging and rerunning
   later steps without cleaning again.
-- The final dashboard table is saved in `data/processed/` as
-  `master_flight_dashboard.parquet`; the small dashboard aggregates are in
-  `data/output/`.
-- `tickets.parquet` (~248M rows) is never materialised as a cleaned file. It is
-  streamed and aggregated straight into the `revenue_*` outputs, so it does not
-  exhaust memory.
+- The final dashboard table is also saved in `data/processed/` as
+  `master_flight_dashboard.parquet`.
+- `tickets.parquet` currently needs to be re-pulled before ticket revenue or
+  passenger-to-flight analysis can be added.
 - Passenger enrichment exists in `src/data_enrich.py`, but passengers are not
-  joined into the master table (tickets are the bridge table).
+  joined into the master table yet because tickets are the bridge table.
 
 ## Next Steps
 
 Good follow-up tasks are:
 
-- Join passengers through tickets for passenger-level analysis.
-- Add more dashboard sections from `master_flight_dashboard.parquet`.
-- Minor design polish on the Streamlit app.
+- Re-pull `tickets.parquet`.
+- Add ticket revenue features after tickets are readable.
+- Join passengers through tickets once the ticket table is available.
+- Build dashboard pages from `master_flight_dashboard.parquet`.
