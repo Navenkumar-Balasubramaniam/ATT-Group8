@@ -2,7 +2,9 @@ import polars as pl
 import plotly.express as px
 import streamlit as st
 
-st.set_page_config(page_title="ATT Plane Analytics", layout="wide")
+from src import analysis, config, contracts
+
+st.set_page_config(page_title=config.APP_TITLE, layout=config.APP_LAYOUT)
 
 DATA_PATH = "data/main_clean.parquet"
 
@@ -28,15 +30,51 @@ def filter_data(df: pl.DataFrame, selected_value: str | None, category_col: str 
     if not selected_value or not category_col or selected_value == "All":
         return df
 
-    return (
-        df
-        .lazy()
-        .filter(pl.col(category_col) == selected_value)
-        .collect()
+
+# --------------------------------------------------------------------------- #
+# Guard: make sure the prepared data exists.
+# --------------------------------------------------------------------------- #
+missing = contracts.missing_files(REQUIRED_FILES)
+if missing:
+    st.title(config.APP_TITLE)
+    st.error(
+        "Prepared data is missing: "
+        + ", ".join(missing)
+        + ".\n\nBuild it first (no database needed):\n\n"
+        "```bash\nuv run python scripts/build_dashboard_data.py\n```"
     )
 
 
-st.title("ATT Plane Analytics")
+# --------------------------------------------------------------------------- #
+# Load + filters
+# --------------------------------------------------------------------------- #
+master = load_master()
+
+st.sidebar.header("Filters")
+continent = st.sidebar.selectbox("Origin continent", ["All"] + options_for(master, CONTINENT_COL))
+distance_band = st.sidebar.selectbox("Distance band", ["All"] + options_for(master, DISTANCE_BAND_COL))
+model_family = st.sidebar.selectbox("Aircraft model family", ["All"] + options_for(master, MODEL_FAMILY_COL))
+top_n = st.sidebar.slider("Top N", min_value=5, max_value=30, value=10)
+
+filtered = apply_filter(master, CONTINENT_COL, continent)
+filtered = apply_filter(filtered, DISTANCE_BAND_COL, distance_band)
+filtered = apply_filter(filtered, MODEL_FAMILY_COL, model_family)
+
+active_filters = [
+    label
+    for label, value in (
+        ("continent", continent),
+        ("distance", distance_band),
+        ("fleet", model_family),
+    )
+    if value != "All"
+]
+
+st.title(config.APP_TITLE)
+st.caption(
+    "Flight, fleet and revenue overview for the ATTPLANE network. "
+    + ("Filters active: " + ", ".join(active_filters) if active_filters else "Showing all flights.")
+)
 
 df = load_data()
 

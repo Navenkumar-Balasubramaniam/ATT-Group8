@@ -18,12 +18,17 @@ from collections.abc import Mapping, Sequence
 
 import polars as pl
 
-PROJECT_ROOT = pathlib.Path(__file__).resolve().parent.parent
-RAW_DIR = PROJECT_ROOT / "data" / "raw"
-PROCESSED_DIR = PROJECT_ROOT / "data" / "processed"
+from src import config
 
-MISSING_TEXT_VALUES = {"", "NA", "N/A", "NULL", "NONE", "NAN"}
+PROJECT_ROOT = config.PROJECT_ROOT
+RAW_DIR = config.RAW_DIR
+PROCESSED_DIR = config.PROCESSED_DIR
 
+MISSING_TEXT_VALUES = config.MISSING_TEXT_VALUES
+
+# Files with more rows than this are cleaned with the streaming engine instead of
+# being read eagerly into memory.
+DEFAULT_STREAMING_THRESHOLD_ROWS = config.DEFAULT_STREAMING_THRESHOLD_ROWS
 
 def clean_missing_values(df: pl.DataFrame) -> pl.DataFrame:
     """Trim text columns and turn obvious missing values into nulls."""
@@ -35,12 +40,50 @@ def clean_missing_values(df: pl.DataFrame) -> pl.DataFrame:
             is_missing = value.str.to_uppercase().is_in(MISSING_TEXT_VALUES)
 
             expressions.append(
-                pl.when(is_missing)
-                .then(None)
-                .otherwise(value)
+                pl.when(is_missing).then(None).otherwise(value).alias(column)
+            )
+    return expressions
+
+
+def _date_exprs(
+    schema: Mapping[str, pl.DataType],
+    date_columns: Sequence[str] = (),
+    datetime_columns: Sequence[str] = (),
+) -> list[pl.Expr]:
+    """Build date/datetime parsing expressions for the requested columns.
+
+    Columns already stored as the target type are skipped (no wasteful re-parse).
+    """
+    expressions = []
+
+    for column in date_columns:
+        if column in schema and schema[column] != pl.Date:
+            expressions.append(
+                pl.col(column)
+                .cast(pl.String)
+                .str.strptime(pl.Date, config.DATE_FORMAT, strict=False)
                 .alias(column)
             )
 
+    for column in datetime_columns:
+        if column in schema and schema[column].base_type() != pl.Datetime:
+            value = pl.col(column).cast(pl.String)
+            parsed = [
+                value.str.strptime(pl.Datetime, fmt, strict=False)
+                for fmt in config.DATETIME_FORMATS
+            ]
+            combined = pl.coalesce(parsed) if len(parsed) > 1 else parsed[0]
+            expressions.append(combined.alias(column))
+
+    return expressions
+
+
+# --------------------------------------------------------------------------- #
+# Eager cleaning (small/medium tables)
+# --------------------------------------------------------------------------- #
+def clean_missing_values(df: pl.DataFrame) -> pl.DataFrame:
+    """Trim text columns and turn obvious missing values into nulls."""
+    expressions = _missing_value_exprs(df.schema)
     if not expressions:
         return df
 

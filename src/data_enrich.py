@@ -14,6 +14,8 @@ from datetime import date
 
 import polars as pl
 
+from src import config
+
 
 def enrich_flights(flights: pl.DataFrame) -> pl.DataFrame:
     """Add simple time features to the flights table."""
@@ -74,13 +76,12 @@ def enrich_airplanes(airplanes: pl.DataFrame) -> pl.DataFrame:
 
     if "model" in airplanes.columns:
         model_upper = pl.col("model").cast(pl.String).str.to_uppercase()
+        (first_keyword, first_label), *rest = config.MODEL_FAMILY_KEYWORDS
+        family = pl.when(model_upper.str.contains(first_keyword)).then(pl.lit(first_label))
+        for keyword, label in rest:
+            family = family.when(model_upper.str.contains(keyword)).then(pl.lit(label))
         airplanes = airplanes.with_columns(
-            pl.when(model_upper.str.contains("AIRBUS"))
-            .then(pl.lit("Airbus"))
-            .when(model_upper.str.contains("BOEING"))
-            .then(pl.lit("Boeing"))
-            .otherwise(pl.lit("Other"))
-            .alias("model_family")
+            family.otherwise(pl.lit(config.MODEL_FAMILY_OTHER)).alias("model_family")
         )
 
     return airplanes
@@ -89,14 +90,15 @@ def enrich_airplanes(airplanes: pl.DataFrame) -> pl.DataFrame:
 def enrich_routes(routes: pl.DataFrame) -> pl.DataFrame:
     """Add simple distance and duration features to the routes table."""
     if "distance" in routes.columns:
+        short, medium, long, very_long = config.DISTANCE_BAND_LABELS
         routes = routes.with_columns(
-            pl.when(pl.col("distance") < 1_500)
-            .then(pl.lit("short"))
-            .when(pl.col("distance") < 4_000)
-            .then(pl.lit("medium"))
-            .when(pl.col("distance") < 8_000)
-            .then(pl.lit("long"))
-            .otherwise(pl.lit("very long"))
+            pl.when(pl.col("distance") < config.DISTANCE_BAND_SHORT_MAX_KM)
+            .then(pl.lit(short))
+            .when(pl.col("distance") < config.DISTANCE_BAND_MEDIUM_MAX_KM)
+            .then(pl.lit(medium))
+            .when(pl.col("distance") < config.DISTANCE_BAND_LONG_MAX_KM)
+            .then(pl.lit(long))
+            .otherwise(pl.lit(very_long))
             .alias("distance_band")
         )
 
@@ -143,12 +145,13 @@ def enrich_airports(airports: pl.DataFrame) -> pl.DataFrame:
         )
 
     if "airport_tax" in airports.columns:
+        low, medium, high = config.AIRPORT_TAX_BAND_LABELS
         airports = airports.with_columns(
-            pl.when(pl.col("airport_tax") < 20)
-            .then(pl.lit("low"))
-            .when(pl.col("airport_tax") < 50)
-            .then(pl.lit("medium"))
-            .otherwise(pl.lit("high"))
+            pl.when(pl.col("airport_tax") < config.AIRPORT_TAX_LOW_MAX)
+            .then(pl.lit(low))
+            .when(pl.col("airport_tax") < config.AIRPORT_TAX_MEDIUM_MAX)
+            .then(pl.lit(medium))
+            .otherwise(pl.lit(high))
             .alias("airport_tax_band")
         )
 
@@ -173,20 +176,21 @@ def enrich_passengers(
         age = (
             (pl.lit(reference_date) - pl.col("birth_date"))
             .dt.total_days()
-            / 365.25
+            / config.DAYS_PER_YEAR
         ).floor()
 
+        child, young, mid, senior = config.AGE_GROUP_LABELS
         passengers = passengers.with_columns(
             age.cast(pl.Int64).alias("age_years"),
             pl.when(pl.col("birth_date").is_null())
             .then(None)
-            .when(age < 18)
-            .then(pl.lit("under 18"))
-            .when(age < 35)
-            .then(pl.lit("18-34"))
-            .when(age < 55)
-            .then(pl.lit("35-54"))
-            .otherwise(pl.lit("55+"))
+            .when(age < config.AGE_GROUP_CHILD_MAX)
+            .then(pl.lit(child))
+            .when(age < config.AGE_GROUP_YOUNG_MAX)
+            .then(pl.lit(young))
+            .when(age < config.AGE_GROUP_MID_MAX)
+            .then(pl.lit(mid))
+            .otherwise(pl.lit(senior))
             .alias("age_group"),
         )
 

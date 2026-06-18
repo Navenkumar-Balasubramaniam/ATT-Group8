@@ -140,8 +140,10 @@ ATT-Group8/
 |-- notebooks/
 |   |-- Exploratory.ipynb
 |   `-- G8_Project.ipynb
-|-- src/
-|   |-- pull_data.py
+|-- src/                           # the group8 package (group8-attplane)
+|   |-- config.py                  # CENTRAL CONFIG: all hardcoded values (paths, DB, thresholds)
+|   |-- contracts.py               # DATA CONTRACT: paths + expected columns (source of truth)
+|   |-- pull_data.py               # pull raw DB2 tables -> data/raw/
 |   |-- db.py
 |   |-- data_inspect.py
 |   |-- data_clean.py

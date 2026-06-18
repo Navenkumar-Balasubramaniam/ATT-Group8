@@ -10,10 +10,10 @@ from __future__ import annotations
 
 import polars as pl
 
+from src import config
 
-def clean_columns_placeholder(df: pl.DataFrame) -> pl.DataFrame:
-    """Compatibility placeholder; use src.data_clean for cleaning logic."""
-    raise NotImplementedError("Use src.data_clean for cleaning logic.")
+# Reference year for aircraft age, matching the project's existing convention.
+AGE_REFERENCE_YEAR = config.AGE_REFERENCE_YEAR
 
 
 def build_metrics_placeholder(df: pl.DataFrame) -> pl.DataFrame:
