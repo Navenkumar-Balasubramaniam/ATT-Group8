@@ -14,7 +14,6 @@ import time
 
 import polars as pl
 
-from src import config
 from src.db import (
     DatabaseConfig,
     get_engine,
@@ -22,17 +21,20 @@ from src.db import (
     stream_table_to_parquet,
 )
 
-SCHEMA = config.DB_SCHEMA
-TABLES = list(config.DB_TABLES)
-RAW_DIR = config.RAW_DIR
-CHUNK_SIZE = config.DB_CHUNK_SIZE
+SCHEMA = "ATTGRP8"
+TABLES = [
+    "AIRPLANES", "AIRPORTS", "FLIGHTS",
+    "PASSENGERS", "ROUTES", "TICKETS",
+]
+RAW_DIR = pathlib.Path(__file__).parent.parent / "data" / "raw"
+CHUNK_SIZE = 50_000
 
 DEFAULT_CONFIG = DatabaseConfig(
-    host=config.DB_HOST,
-    port=config.DB_PORT,
-    name=config.DB_NAME,
-    username=config.DB_USERNAME,
-    password=config.DB_PASSWORD,
+    host="52.211.123.34",
+    port=25010,
+    name="ATTPLANE",
+    username="attgrp8",
+    password="bigdata",
 )
 
 

@@ -24,17 +24,15 @@ from collections.abc import Mapping, Sequence
 
 import polars as pl
 
-from src import config
+PROJECT_ROOT = pathlib.Path(__file__).resolve().parent.parent
+RAW_DIR = PROJECT_ROOT / "data" / "raw"
+PROCESSED_DIR = PROJECT_ROOT / "data" / "processed"
 
-PROJECT_ROOT = config.PROJECT_ROOT
-RAW_DIR = config.RAW_DIR
-PROCESSED_DIR = config.PROCESSED_DIR
-
-MISSING_TEXT_VALUES = config.MISSING_TEXT_VALUES
+MISSING_TEXT_VALUES = {"", "NA", "N/A", "NULL", "NONE", "NAN"}
 
 # Files with more rows than this are cleaned with the streaming engine instead of
 # being read eagerly into memory.
-DEFAULT_STREAMING_THRESHOLD_ROWS = config.DEFAULT_STREAMING_THRESHOLD_ROWS
+DEFAULT_STREAMING_THRESHOLD_ROWS = 5_000_000
 
 
 # --------------------------------------------------------------------------- #
@@ -69,19 +67,19 @@ def _date_exprs(
             expressions.append(
                 pl.col(column)
                 .cast(pl.String)
-                .str.strptime(pl.Date, config.DATE_FORMAT, strict=False)
+                .str.strptime(pl.Date, "%Y-%m-%d", strict=False)
                 .alias(column)
             )
 
     for column in datetime_columns:
         if column in schema and schema[column].base_type() != pl.Datetime:
             value = pl.col(column).cast(pl.String)
-            parsed = [
-                value.str.strptime(pl.Datetime, fmt, strict=False)
-                for fmt in config.DATETIME_FORMATS
-            ]
-            combined = pl.coalesce(parsed) if len(parsed) > 1 else parsed[0]
-            expressions.append(combined.alias(column))
+            expressions.append(
+                pl.coalesce(
+                    value.str.strptime(pl.Datetime, "%Y-%m-%d %H:%M:%S", strict=False),
+                    value.str.strptime(pl.Datetime, "%Y-%m-%d %H:%M:%S%.f", strict=False),
+                ).alias(column)
+            )
 
     return expressions
 

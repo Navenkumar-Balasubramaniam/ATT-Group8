@@ -20,20 +20,25 @@ from collections.abc import Mapping, Sequence
 
 import polars as pl
 
-from src import config
-
 # --------------------------------------------------------------------------- #
-# Directories (defined in src.config, re-exported here for the contract API)
+# Directories (anchored to the repo root, regardless of where code is run from)
 # --------------------------------------------------------------------------- #
-PROJECT_ROOT = config.PROJECT_ROOT
-RAW_DIR = config.RAW_DIR
-PROCESSED_DIR = config.PROCESSED_DIR
-OUTPUT_DIR = config.OUTPUT_DIR
+PROJECT_ROOT = pathlib.Path(__file__).resolve().parent.parent
+RAW_DIR = PROJECT_ROOT / "data" / "raw"
+PROCESSED_DIR = PROJECT_ROOT / "data" / "processed"
+OUTPUT_DIR = PROJECT_ROOT / "data" / "output"
 
 # --------------------------------------------------------------------------- #
 # Tier 1: raw input tables
 # --------------------------------------------------------------------------- #
-RAW_TABLES: tuple[str, ...] = config.RAW_TABLES
+RAW_TABLES: tuple[str, ...] = (
+    "airplanes",
+    "airports",
+    "flights",
+    "passengers",
+    "routes",
+    "tickets",
+)
 RAW_FILES: dict[str, pathlib.Path] = {
     name: RAW_DIR / f"{name}.parquet" for name in RAW_TABLES
 }
@@ -43,12 +48,18 @@ RAW_FILES: dict[str, pathlib.Path] = {
 # with the streaming engine straight into the small revenue_* outputs. A global
 # ``unique`` over it defeats streaming and exhausts memory, so it is intentionally
 # excluded from the eager cleaning loop.
-STREAMING_TABLES: tuple[str, ...] = config.STREAMING_TABLES
+STREAMING_TABLES: tuple[str, ...] = ("tickets",)
 
 # Date / datetime columns to parse during cleaning (kept here so cleaning is
 # consistent between the notebook and the prep script).
-DATE_COLUMNS_BY_TABLE: dict[str, tuple[str, ...]] = config.DATE_COLUMNS_BY_TABLE
-DATETIME_COLUMNS_BY_TABLE: dict[str, tuple[str, ...]] = config.DATETIME_COLUMNS_BY_TABLE
+DATE_COLUMNS_BY_TABLE: dict[str, tuple[str, ...]] = {
+    "airplanes": ("build_date", "maintenance_last_acheck", "maintenance_last_bcheck"),
+    "passengers": ("birth_date",),
+}
+DATETIME_COLUMNS_BY_TABLE: dict[str, tuple[str, ...]] = {
+    "flights": ("departure", "arrival"),
+    "tickets": ("departure",),
+}
 
 # --------------------------------------------------------------------------- #
 # Tier 2: processed (cleaned + modelled) tables

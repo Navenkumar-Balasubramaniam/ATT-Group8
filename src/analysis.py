@@ -18,10 +18,8 @@ from __future__ import annotations
 
 import polars as pl
 
-from src import config
-
 # Reference year for aircraft age, matching the project's existing convention.
-AGE_REFERENCE_YEAR = config.AGE_REFERENCE_YEAR
+AGE_REFERENCE_YEAR = 2026
 
 
 def _collect_streaming(lf: pl.LazyFrame) -> pl.DataFrame:
