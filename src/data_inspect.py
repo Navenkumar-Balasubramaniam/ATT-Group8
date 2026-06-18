@@ -16,18 +16,13 @@ from collections.abc import Mapping
 
 import polars as pl
 
-PROJECT_ROOT = pathlib.Path(__file__).resolve().parent.parent
-RAW_DIR = PROJECT_ROOT / "data" / "raw"
-PROCESSED_DIR = PROJECT_ROOT / "data" / "processed"
+from src import config
 
-RAW_TABLES = (
-    "airplanes",
-    "airports",
-    "flights",
-    "passengers",
-    "routes",
-    "tickets",
-)
+PROJECT_ROOT = config.PROJECT_ROOT
+RAW_DIR = config.RAW_DIR
+PROCESSED_DIR = config.PROCESSED_DIR
+
+RAW_TABLES = config.RAW_TABLES
 
 
 def check_raw_files(

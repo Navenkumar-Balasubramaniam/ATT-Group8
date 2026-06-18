@@ -19,9 +19,9 @@ import polars as pl
 import plotly.express as px
 import streamlit as st
 
-from src import analysis, contracts
+from src import analysis, config, contracts
 
-st.set_page_config(page_title="ATT Plane Analytics", layout="wide")
+st.set_page_config(page_title=config.APP_TITLE, layout=config.APP_LAYOUT)
 
 # Master columns used as filter dimensions (prefixed during the join).
 CONTINENT_COL = "origin_continent"
@@ -65,7 +65,7 @@ def apply_filter(df: pl.DataFrame, column: str, value: str | None) -> pl.DataFra
 # --------------------------------------------------------------------------- #
 missing = contracts.missing_files(REQUIRED_FILES)
 if missing:
-    st.title("ATT Plane Analytics")
+    st.title(config.APP_TITLE)
     st.error(
         "Prepared data is missing: "
         + ", ".join(missing)
@@ -100,7 +100,7 @@ active_filters = [
     if value != "All"
 ]
 
-st.title("ATT Plane Analytics")
+st.title(config.APP_TITLE)
 st.caption(
     "Flight, fleet and revenue overview for the ATTPLANE network. "
     + ("Filters active: " + ", ".join(active_filters) if active_filters else "Showing all flights.")
