@@ -60,6 +60,23 @@ def apply_filter(df: pl.DataFrame, column: str, value: str | None) -> pl.DataFra
     return df.filter(pl.col(column) == value)
 
 
+def format_compact(value: float, prefix: str = "") -> str:
+    """Format a large number compactly, e.g. 1_758_638 -> '1.76M'."""
+    magnitude = abs(value)
+    if magnitude >= 1_000_000_000:
+        return f"{prefix}{value / 1_000_000_000:.2f}B"
+    if magnitude >= 1_000_000:
+        return f"{prefix}{value / 1_000_000:.2f}M"
+    if magnitude >= 1_000:
+        return f"{prefix}{value / 1_000:.1f}K"
+    return f"{prefix}{value:,.0f}"
+
+
+def route_label(code: str, origin: str, destination: str) -> str:
+    """Combine a route code with origin/destination, e.g. 'R224 (JFK->LAX)'."""
+    return f"{code} ({origin} -> {destination})"
+
+
 # --------------------------------------------------------------------------- #
 # Guard: make sure the prepared data exists.
 # --------------------------------------------------------------------------- #
@@ -119,19 +136,34 @@ visible_routes = filtered.select(pl.col("route_code").unique()).to_series().to_l
 revenue_route = load_output("revenue_by_route").filter(pl.col("route_code").is_in(visible_routes))
 
 top_route_row = (
-    filtered.group_by("route_code").agg(pl.len().alias("n")).sort("n", descending=True).head(1)
+    filtered.group_by("route_code", "route_origin", "route_destination")
+    .agg(pl.len().alias("n"))
+    .sort("n", descending=True)
+    .head(1)
 )
-top_route = top_route_row.item(0, "route_code") if top_route_row.height else "-"
+if top_route_row.height:
+    top_route_cities = (
+        f"{top_route_row.item(0, 'route_origin')} -> "
+        f"{top_route_row.item(0, 'route_destination')}"
+    )
+    top_route_detail = route_label(
+        top_route_row.item(0, "route_code"),
+        top_route_row.item(0, "route_origin"),
+        top_route_row.item(0, "route_destination"),
+    )
+else:
+    top_route_cities = "-"
+    top_route_detail = "-"
 
 top_continent_row = analysis.flights_by_continent(filtered).head(1)
 top_continent = top_continent_row.item(0, "origin_continent") if top_continent_row.height else "-"
 
 k1, k2, k3, k4, k5 = st.columns(5)
-k1.metric("Flights", f"{filtered.height:,}")
-k2.metric("Total revenue", f"${revenue_route['total_revenue'].sum():,.0f}")
-k3.metric("Tickets", f"{revenue_route['n_tickets'].sum():,}")
-k4.metric("Aircraft in view", f"{filtered['airplane'].n_unique():,}")
-k5.metric("Top route", top_route)
+k1.metric("Flights", format_compact(filtered.height))
+k2.metric("Total revenue", format_compact(revenue_route["total_revenue"].sum(), prefix="$"))
+k3.metric("Tickets", format_compact(revenue_route["n_tickets"].sum()))
+k4.metric("Aircraft in view", format_compact(filtered["airplane"].n_unique()))
+k5.metric("Top route", top_route_cities, help=top_route_detail)
 
 
 # --------------------------------------------------------------------------- #
